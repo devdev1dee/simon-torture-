@@ -2,23 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Simon's Bad Day - POV</title>
+    <title>Simon's Punishment - POV</title>
     <style>
         body { margin: 0; background: #050505; color: #ff0000; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
         canvas { background: radial-gradient(circle, #1a1a1a 0%, #000 100%); display: block; cursor: crosshair; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; text-shadow: 2px 2px #000; }
-        #level-msg { position: absolute; top: 50%; width: 100%; text-align: center; font-size: 40px; color: white; display: none; }
-        #hint { position: absolute; bottom: 10px; width: 100%; text-align: center; color: #555; font-size: 12px; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; text-shadow: 2px 2px #000; z-index: 10; }
+        #level-msg { position: absolute; top: 50%; width: 100%; text-align: center; font-size: 40px; color: white; display: none; z-index: 10; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h1>PELT SIMON HENRIKSSON</h1>
+        <h1>REVENGE ON SIMON</h1>
         <p>HITS: <span id="score">0</span> / 10</p>
     </div>
-    <div id="level-msg">HE'S PINNED. FINISH HIM.</div>
-    <div id="hint">Tip: Aim slightly ahead of him!</div>
+    <div id="level-msg">PINNED. MAKE HIM CRY.</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -35,13 +33,15 @@
         let level = 1;
         let tomatoes = [];
         let splats = [];
+        let tears = []; // Array for tear particles
+        let screenShake = 0;
 
         const simon = {
             x: canvas.width / 2,
             y: canvas.height / 2 + 50,
             velX: 0,
-            friction: 0.8, // Slightly higher friction so he doesn't slide forever
-            panic: 1.5,    // Reduced panic so he's less "twitchy"
+            friction: 0.8,
+            panic: 1.5,
             width: 80,
             height: 120
         };
@@ -52,7 +52,7 @@
                 this.y = canvas.height + 50;
                 this.tx = tx; this.ty = ty;
                 this.progress = 0;
-                this.speed = 0.08; // INCREASED SPEED: Makes it much easier to hit him
+                this.speed = 0.09; 
                 this.size = 80;
                 this.active = true;
             }
@@ -73,14 +73,27 @@
         }
 
         function checkHit(tx, ty) {
-            // Hitbox is now slightly more generous
             const hit = tx > simon.x - 50 && tx < simon.x + 50 && ty > simon.y - 110 && ty < simon.y + 30;
             if (hit) {
                 score++;
                 scoreEl.innerText = score;
-                // Add a visual "flash" when hit
-                splats.push({x: tx, y: ty, size: 60, life: 40, color: `rgba(255,0,0,`});
-                if (score >= 10 && level === 1) startLevel2();
+                splats.push({x: tx, y: ty, size: 60, life: 40});
+                screenShake = 10; // Trigger shake
+                
+                if (level === 2) {
+                    // Level 2: Explosive crying on hit
+                    for(let i=0; i<5; i++) {
+                        tears.push({
+                            x: simon.x + (Math.random() - 0.5) * 20,
+                            y: simon.y - 70,
+                            vx: (Math.random() - 0.5) * 4,
+                            vy: Math.random() * 5,
+                            life: 100
+                        });
+                    }
+                }
+                
+                if (score === 10 && level === 1) startLevel2();
             }
         }
 
@@ -95,35 +108,31 @@
             ctx.translate(x, y);
 
             if (level === 2) {
+                // The Cross
                 ctx.fillStyle = "#2b1d0e";
                 ctx.fillRect(-10, -180, 20, 250); 
                 ctx.fillRect(-80, -100, 160, 20); 
-                ctx.fillStyle = "rgba(0, 200, 255, 0.6)";
-                ctx.font = "20px Arial";
-                ctx.fillText("💧", -15 + Math.sin(Date.now()/200)*2, -60);
-                ctx.fillText("💧", 5 + Math.cos(Date.now()/200)*2, -60);
+
+                // Automatic slow tears
+                if (Math.random() > 0.9) {
+                    tears.push({ x: simon.x + (Math.random()>0.5?15:-15), y: simon.y - 70, vx: 0, vy: 2, life: 100 });
+                }
             }
 
-            // Hoodie Body
+            // Hoodie Body (Simon style)
             ctx.fillStyle = "#4a4a4a"; 
             ctx.beginPath();
-            ctx.moveTo(-35, 30);
-            ctx.lineTo(-45, -85);
-            ctx.quadraticCurveTo(0, -120, 45, -85);
-            ctx.lineTo(35, 30);
+            ctx.moveTo(-35, 30); ctx.lineTo(-45, -85);
+            ctx.quadraticCurveTo(0, -120, 45, -85); ctx.lineTo(35, 30);
             ctx.fill();
 
             // Shadowed Face
             ctx.fillStyle = "#c2a382";
-            ctx.beginPath();
-            ctx.arc(0, -78, 22, 0, Math.PI*2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -78, 22, 0, Math.PI*2); ctx.fill();
 
             // Hood/Hair Shadow
             ctx.fillStyle = "#111";
-            ctx.beginPath();
-            ctx.arc(0, -88, 25, Math.PI, 0); 
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -88, 25, Math.PI, 0); ctx.fill();
             ctx.fillRect(-22, -88, 44, 18); 
 
             ctx.restore();
@@ -134,38 +143,56 @@
         });
 
         function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            // Apply Screen Shake
+            if (screenShake > 0) {
+                ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+                screenShake *= 0.9;
+            }
+
+            ctx.clearRect(-100, -100, canvas.width+200, canvas.height+200);
 
             if (level === 1) {
-                // REDUCED DODGE RADIUS: He only panics if the tomato is very close
                 tomatoes.forEach(t => {
                     if (t.progress > 0.6 && t.progress < 0.9 && Math.abs(t.tx - simon.x) < 80) {
                         simon.velX += (simon.x > t.tx ? simon.panic : -simon.panic);
                     }
                 });
-
-                // TETHER
                 const margin = 200;
                 if (simon.x < margin) simon.velX += 1.5;
                 if (simon.x > canvas.width - margin) simon.velX -= 1.5;
-
                 simon.x += simon.velX;
                 simon.velX *= simon.friction;
             }
 
             drawSimon(simon.x, simon.y);
 
+            // Draw Splats
             splats.forEach((s, i) => {
-                ctx.fillStyle = s.color + (s.life/40) + ")";
+                ctx.fillStyle = `rgba(200, 0, 0, ${s.life/40})`;
                 ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill();
                 s.life--; if(s.life<=0) splats.splice(i,1);
             });
 
+            // Update/Draw Tears
+            tears.forEach((t, i) => {
+                ctx.font = "15px Arial";
+                ctx.globalAlpha = t.life / 100;
+                ctx.fillText("💧", t.x, t.y);
+                t.x += t.vx;
+                t.y += t.vy;
+                t.life -= 2;
+                if (t.life <= 0) tears.splice(i, 1);
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw Tomatoes
             tomatoes.forEach((t, i) => {
                 t.update(); t.draw();
                 if(!t.active) tomatoes.splice(i,1);
             });
 
+            ctx.restore();
             requestAnimationFrame(animate);
         }
 
