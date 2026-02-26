@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tomato Toss: Simon Edition</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; text-align: center; }
+        canvas { background: #333; display: block; margin: 20px auto; border: 5px solid #555; cursor: crosshair; }
+        #ui { position: absolute; top: 10px; width: 100%; pointer-events: none; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1 id="status">Level 1: Hit Simon!</h1>
+        <p>Hits: <span id="score">0</span> / 10</p>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const statusEl = document.getElementById('status');
+
+        canvas.width = 800;
+        canvas.height = 500;
+
+        let score = 0;
+        let level = 1;
+        let tomatoes = [];
+        
+        // Simon Object
+        const simon = {
+            x: 400,
+            y: 400,
+            width: 40,
+            height: 60,
+            speed: 5,
+            direction: 1
+        };
+
+        // Tomato Object Class
+        class Tomato {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 8;
+                this.speed = 7;
+                this.active = true;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "red";
+                ctx.fill();
+                ctx.closePath();
+            }
+            update() {
+                this.y += this.speed;
+                // Collision Detection
+                if (this.y > simon.y && this.y < simon.y + simon.height &&
+                    this.x > simon.x && this.x < simon.x + simon.width) {
+                    this.active = false;
+                    hitSimon();
+                }
+                if (this.y > canvas.height) this.active = false;
+            }
+        }
+
+        function hitSimon() {
+            score++;
+            scoreEl.innerText = score;
+            if (score === 10 && level === 1) {
+                startLevel2();
+            }
+        }
+
+        function startLevel2() {
+            level = 2;
+            statusEl.innerText = "Level 2: Simon is Pinned!";
+            simon.x = canvas.width / 2 - 20;
+            simon.y = 200;
+            simon.speed = 0; // He stops moving
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            tomatoes.push(new Tomato(mouseX, 20));
+        });
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Simon (Placeholder: Grey Box for Simon)
+            ctx.fillStyle = level === 2 ? "#555" : "#888"; 
+            ctx.fillRect(simon.x, simon.y, simon.width, simon.height);
+            
+            // Draw "The Cross" in Level 2
+            if (level === 2) {
+                ctx.strokeStyle = "brown";
+                ctx.lineWidth = 10;
+                ctx.strokeRect(simon.x - 20, simon.y, 80, 10); // horizontal bar
+                ctx.strokeRect(simon.x + 15, simon.y - 50, 10, 150); // vertical bar
+                
+                // Crying effect
+                ctx.fillStyle = "cyan";
+                ctx.fillText("T_T", simon.x + 10, simon.y + 20);
+            }
+
+            // Simon AI
+            if (level === 1) {
+                simon.x += simon.speed * simon.direction;
+                if (simon.x <= 0 || simon.x + simon.width >= canvas.width) {
+                    simon.direction *= -1;
+                }
+            }
+
+            // Update Tomatoes
+            tomatoes.forEach((t, index) => {
+                t.draw();
+                t.update();
+                if (!t.active) tomatoes.splice(index, 1);
+            });
+
+            requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
+</body>
+</html>
