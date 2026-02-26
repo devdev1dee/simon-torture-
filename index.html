@@ -2,20 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tomato Toss: Simon Edition</title>
+    <title>Simon POV Toss</title>
     <style>
-        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; text-align: center; }
-        canvas { background: #333; display: block; margin: 20px auto; border: 5px solid #555; cursor: crosshair; }
-        #ui { position: absolute; top: 10px; width: 100%; pointer-events: none; }
-        .hidden { display: none; }
+        body { margin: 0; background: #050505; color: white; font-family: 'Courier New', Courier, monospace; overflow: hidden; text-align: center; }
+        canvas { background: linear-gradient(#111, #333); display: block; margin: 0 auto; cursor: crosshair; }
+        #ui { position: absolute; top: 20px; width: 100%; pointer-events: none; text-shadow: 2px 2px black; }
+        .splat { position: absolute; pointer-events: none; transform: translate(-50%, -50%); }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h1 id="status">Level 1: Hit Simon!</h1>
-        <p>Hits: <span id="score">0</span> / 10</p>
+        <h1 id="status">CLICK TO PELT SIMON</h1>
+        <p>HITS: <span id="score">0</span> / 10</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -26,111 +25,155 @@
         const scoreEl = document.getElementById('score');
         const statusEl = document.getElementById('status');
 
-        canvas.width = 800;
-        canvas.height = 500;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
         let score = 0;
         let level = 1;
         let tomatoes = [];
-        
-        // Simon Object
+        let splats = [];
+
         const simon = {
-            x: 400,
-            y: 400,
-            width: 40,
-            height: 60,
-            speed: 5,
-            direction: 1
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            width: 80,
+            height: 120,
+            targetY: canvas.height / 2,
+            speed: 4,
+            angle: 0
         };
 
-        // Tomato Object Class
         class Tomato {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 8;
-                this.speed = 7;
+            constructor(targetX, targetY) {
+                this.startX = canvas.width / 2; // Starts from your "hand"
+                this.startY = canvas.height + 50;
+                this.x = this.startX;
+                this.y = this.startY;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.size = 60; // Start big (close to you)
+                this.progress = 0;
+                this.speed = 0.03; // Flight speed
                 this.active = true;
             }
+
             draw() {
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = "red";
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = "#ff2200";
                 ctx.fill();
-                ctx.closePath();
+                // Highlight for 3D look
+                ctx.beginPath();
+                ctx.arc(this.x - this.size/3, this.y - this.size/3, this.size/4, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255,255,255,0.3)";
+                ctx.fill();
             }
+
             update() {
-                this.y += this.speed;
-                // Collision Detection
-                if (this.y > simon.y && this.y < simon.y + simon.height &&
-                    this.x > simon.x && this.x < simon.x + simon.width) {
+                this.progress += this.speed;
+                // Linear interpolation for "3D" movement
+                this.x = this.startX + (this.targetX - this.startX) * this.progress;
+                this.y = this.startY + (this.targetY - this.startY) * this.progress;
+                this.size = 60 * (1 - this.progress); // Shrinks as it goes away
+
+                if (this.progress >= 1) {
                     this.active = false;
-                    hitSimon();
+                    checkHit(this.targetX, this.targetY);
                 }
-                if (this.y > canvas.height) this.active = false;
             }
         }
 
-        function hitSimon() {
-            score++;
-            scoreEl.innerText = score;
-            if (score === 10 && level === 1) {
-                startLevel2();
+        function checkHit(x, y) {
+            let hit = false;
+            if (x > simon.x - simon.width/2 && x < simon.x + simon.width/2 &&
+                y > simon.y - simon.height/2 && y < simon.y + simon.height/2) {
+                hit = true;
             }
+
+            if (hit) {
+                score++;
+                scoreEl.innerText = score;
+                createSplat(x, y);
+                if (score >= 10 && level === 1) startLevel2();
+            }
+        }
+
+        function createSplat(x, y) {
+            splats.push({x: x, y: y, size: 40 + Math.random()*20, life: 100});
         }
 
         function startLevel2() {
             level = 2;
-            statusEl.innerText = "Level 2: Simon is Pinned!";
-            simon.x = canvas.width / 2 - 20;
-            simon.y = 200;
-            simon.speed = 0; // He stops moving
+            statusEl.innerText = "LEVEL 2: HE'S PINNED. KEEP THROWING.";
+            simon.speed = 0;
         }
 
         canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            tomatoes.push(new Tomato(mouseX, 20));
+            tomatoes.push(new Tomato(e.clientX, e.clientY));
         });
+
+        function drawSimon() {
+            ctx.save();
+            ctx.translate(simon.x, simon.y);
+            
+            // Draw The Cross in Level 2
+            if (level === 2) {
+                ctx.fillStyle = "#4a2c1a";
+                ctx.fillRect(-10, -100, 20, 200); // vertical
+                ctx.fillRect(-60, -40, 120, 20); // horizontal
+                // Crying
+                ctx.fillStyle = "#00ffff";
+                ctx.font = "20px Arial";
+                ctx.fillText("T_T", -15, -10);
+            }
+
+            // Simon Placeholder (Draw a creepy hoodie figure)
+            ctx.fillStyle = (level === 2) ? "#222" : "#444";
+            ctx.fillRect(-simon.width/2, -simon.height/2, simon.width, simon.height);
+            // Face/Hood
+            ctx.fillStyle = "#000";
+            ctx.fillRect(-simon.width/4, -simon.height/2 + 10, simon.width/2, 30);
+            
+            ctx.restore();
+        }
 
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Simon (Placeholder: Grey Box for Simon)
-            ctx.fillStyle = level === 2 ? "#555" : "#888"; 
-            ctx.fillRect(simon.x, simon.y, simon.width, simon.height);
-            
-            // Draw "The Cross" in Level 2
-            if (level === 2) {
-                ctx.strokeStyle = "brown";
-                ctx.lineWidth = 10;
-                ctx.strokeRect(simon.x - 20, simon.y, 80, 10); // horizontal bar
-                ctx.strokeRect(simon.x + 15, simon.y - 50, 10, 150); // vertical bar
-                
-                // Crying effect
-                ctx.fillStyle = "cyan";
-                ctx.fillText("T_T", simon.x + 10, simon.y + 20);
-            }
-
-            // Simon AI
+            // Move Simon in Level 1
             if (level === 1) {
-                simon.x += simon.speed * simon.direction;
-                if (simon.x <= 0 || simon.x + simon.width >= canvas.width) {
-                    simon.direction *= -1;
-                }
+                simon.angle += 0.05;
+                simon.x = (canvas.width / 2) + Math.sin(simon.angle) * (canvas.width / 3);
             }
 
-            // Update Tomatoes
-            tomatoes.forEach((t, index) => {
+            drawSimon();
+
+            // Handle Splats
+            splats.forEach((s, i) => {
+                ctx.fillStyle = `rgba(200, 0, 0, ${s.life / 100})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+                ctx.fill();
+                s.life--;
+                if (s.life <= 0) splats.splice(i, 1);
+            });
+
+            // Handle Tomatoes
+            tomatoes.forEach((t, i) => {
                 t.draw();
                 t.update();
-                if (!t.active) tomatoes.splice(index, 1);
+                if (!t.active) tomatoes.splice(i, 1);
             });
 
             requestAnimationFrame(update);
         }
 
         update();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
     </script>
 </body>
 </html>
